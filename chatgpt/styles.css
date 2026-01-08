@@ -1,0 +1,434 @@
+/* Slack Emoji Gen - v1.1 (+ Dark Mode)
+   Layout: Two-column grid (left controls, right sticky preview)
+   Responsive: stacks on mobile
+*/
+
+:root{
+  /* Light theme (default) */
+  color-scheme: light;
+
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e5e7eb;
+  --shadow: 0 10px 25px rgba(2, 6, 23, 0.08);
+
+  --topbar-bg: rgba(246, 247, 251, 0.8);
+  --pill-bg: rgba(255,255,255,0.75);
+  --pill-text: #334155;
+
+  --checker-a: rgba(0,0,0,0.06);
+  --checker-b: transparent;
+
+  --focus: rgba(59, 130, 246, 0.7);
+  --focusRing: rgba(59, 130, 246, 0.15);
+
+  --btnPrimaryBg: #0f172a;
+  --btnPrimaryText: #ffffff;
+  --btnBg: var(--card);
+  --btnText: var(--text);
+
+  --radius: 14px;
+  --gap: 22px;
+  --maxw: 1100px;
+}
+
+/* Explicit themes (user override) */
+:root[data-theme="dark"]{
+  color-scheme: dark;
+
+  --bg: #0b1220;
+  --card: #0f172a;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #1f2937;
+  --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+
+  --topbar-bg: rgba(11, 18, 32, 0.78);
+  --pill-bg: rgba(15, 23, 42, 0.72);
+  --pill-text: #cbd5e1;
+
+  --checker-a: rgba(255,255,255,0.06);
+  --checker-b: transparent;
+
+  --focus: rgba(96, 165, 250, 0.8);
+  --focusRing: rgba(96, 165, 250, 0.18);
+
+  --btnPrimaryBg: #e2e8f0;
+  --btnPrimaryText: #0b1220;
+  --btnBg: var(--card);
+  --btnText: var(--text);
+}
+
+:root[data-theme="light"]{
+  color-scheme: light;
+  /* Keep light vars; this block exists mainly to override system dark mode */
+}
+
+/* System preference (only when no explicit data-theme is set) */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme]){
+    color-scheme: dark;
+
+    --bg: #0b1220;
+    --card: #0f172a;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #1f2937;
+    --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+
+    --topbar-bg: rgba(11, 18, 32, 0.78);
+    --pill-bg: rgba(15, 23, 42, 0.72);
+    --pill-text: #cbd5e1;
+
+    --checker-a: rgba(255,255,255,0.06);
+    --checker-b: transparent;
+
+    --focus: rgba(96, 165, 250, 0.8);
+    --focusRing: rgba(96, 165, 250, 0.18);
+
+    --btnPrimaryBg: #e2e8f0;
+    --btnPrimaryText: #0b1220;
+    --btnBg: var(--card);
+    --btnText: var(--text);
+  }
+}
+
+*{ box-sizing: border-box; }
+html, body{ height: 100%; }
+
+body{
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans TC", "Noto Sans", sans-serif;
+  line-height: 1.4;
+}
+
+.container{
+  width: min(var(--maxw), calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.topbar{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar .container{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+  gap: 16px;
+}
+
+.brand__title{
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: 0.2px;
+}
+.brand__subtitle{
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.topbar__meta{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill{
+  font-size: 12px;
+  color: var(--pill-text);
+  border: 1px solid var(--border);
+  background: var(--pill-bg);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.themeCtrl{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.themeCtrl__label{
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.miniSelect{
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--pill-bg);
+  color: var(--pill-text);
+  font-size: 12px;
+  outline: none;
+}
+.miniSelect:focus{
+  border-color: var(--focus);
+  box-shadow: 0 0 0 4px var(--focusRing);
+}
+
+.main{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--gap);
+  padding: 22px 0 40px;
+  align-items: start;
+}
+
+/* Preview column is sticky on desktop */
+.previewCol{
+  position: sticky;
+  top: 20px;
+  align-self: start;
+}
+
+.controlsCol{
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.card{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.h2{
+  margin: 0 0 12px;
+  font-size: 15px;
+  letter-spacing: 0.2px;
+}
+
+.muted{ color: var(--muted); }
+.small{ font-size: 12px; }
+
+.field{ display: block; margin: 12px 0; }
+.label{
+  display: block;
+  font-size: 13px;
+  color: var(--pill-text);
+  margin-bottom: 6px;
+}
+.help{
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+.textarea{
+  width: 100%;
+  resize: vertical;
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  outline: none;
+  font-size: 14px;
+  background: var(--card);
+  color: var(--text);
+  min-height: 92px;
+}
+.textarea:focus, .select:focus, .textInputMono:focus{
+  border-color: var(--focus);
+  box-shadow: 0 0 0 4px var(--focusRing);
+}
+
+.select{
+  width: 100%;
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+.grid2{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 920px){
+  .main{ grid-template-columns: 1fr; }
+  .previewCol{
+    position: static;
+    top: auto;
+    order: -1; /* preview on top for mobile */
+  }
+}
+
+.labelRow{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.valuePill{
+  font-size: 12px;
+  color: var(--text);
+  background: var(--pill-bg);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 999px;
+  min-width: 52px;
+  text-align: center;
+}
+
+.range{
+  width: 100%;
+}
+
+.colorRow{
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.color{
+  width: 44px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+}
+
+.textInputMono{
+  width: 100%;
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  outline: none;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--card);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.switchRow{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.previewCard .previewHeader{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.specBadge{
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--pill-bg);
+}
+
+.previewWrapper{
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(45deg, var(--checker-a) 25%, var(--checker-b) 25%, var(--checker-b) 75%, var(--checker-a) 75%, var(--checker-a)),
+    linear-gradient(45deg, var(--checker-a) 25%, var(--checker-b) 25%, var(--checker-b) 75%, var(--checker-a) 75%, var(--checker-a));
+  background-position: 0 0, 10px 10px;
+  background-size: 20px 20px;
+}
+
+#previewCanvas{
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.previewActions{
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btn{
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--btnBg);
+  color: var(--btnText);
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+  width: 100%;
+}
+.btn:hover{ filter: brightness(0.98); }
+.btn:active{ transform: translateY(1px); }
+
+.btnPrimary{
+  background: var(--btnPrimaryBg);
+  color: var(--btnPrimaryText);
+  border-color: rgba(15, 23, 42, 0.25);
+}
+
+.tips{
+  margin-top: 14px;
+  border-top: 1px dashed var(--border);
+  padding-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.tips summary{
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--pill-text);
+}
+.tips ul{
+  margin: 10px 0 0 18px;
+  padding: 0;
+}
+kbd{
+  border: 1px solid var(--border);
+  background: var(--pill-bg);
+  border-bottom-width: 2px;
+  padding: 2px 6px;
+  border-radius: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.footerNote{
+  text-align: center;
+  margin-top: 4px;
+}

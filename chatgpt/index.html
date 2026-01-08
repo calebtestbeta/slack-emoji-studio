@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-C876YCX8BX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-C876YCX8BX');
+  </script>
+
+  <title>Slack Emoji Gen</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="container">
+      <div class="brand">
+        <div class="brand__title">Slack Emoji Gen</div>
+        <div class="brand__subtitle">純前端、即時預覽、輸出 128×128 PNG</div>
+      </div>
+
+      <div class="topbar__meta" aria-label="meta">
+        <label class="themeCtrl" aria-label="theme">
+          <span class="themeCtrl__label">主題</span>
+          <select id="themeSelect" class="miniSelect">
+            <option value="system" selected>系統</option>
+            <option value="light">淺色</option>
+            <option value="dark">深色</option>
+          </select>
+        </label>
+
+        <span class="pill">本機運算</span>
+        <span class="pill">不會上傳文字</span>
+        <span class="pill" style="opacity: 0.6;">使用 GA 分析</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    <!-- Right column (sticky on desktop) -->
+    <aside class="previewCol" aria-label="preview panel">
+      <section class="card previewCard">
+        <div class="previewHeader">
+          <div>
+            <h2 class="h2">結果預覽</h2>
+            <p class="muted">Slack 規格輸出：<strong>128×128</strong> PNG</p>
+          </div>
+          <div class="specBadge" title="Slack emoji size">128</div>
+        </div>
+
+        <div class="previewWrapper" aria-label="emoji preview">
+          <canvas id="previewCanvas" width="256" height="256"></canvas>
+        </div>
+
+        <div class="previewActions">
+          <button id="downloadBtn" type="button" class="btn btnPrimary">下載 PNG</button>
+          <button id="resetBtn" type="button" class="btn">重置</button>
+        </div>
+
+        <details class="tips">
+          <summary>小提示</summary>
+          <ul>
+            <li>用 <kbd>Enter</kbd> 換行（多行文字）。</li>
+            <li>預覽會放大顯示，但實際輸出固定為 128×128。</li>
+            <li>若字體剛切換看起來不對，通常是字體載入中，會自動更新。</li>
+          </ul>
+        </details>
+      </section>
+    </aside>
+
+    <!-- Left column (controls) -->
+    <section class="controlsCol" aria-label="controls panel">
+      <section class="card">
+        <h2 class="h2">文字</h2>
+
+        <label class="field">
+          <span class="label">輸入文字（支援中英文與換行）</span>
+          <textarea id="textInput" class="textarea" rows="4" placeholder="例如：\n早安！\nHello :)"></textarea>
+        </label>
+
+        <div class="grid2">
+          <label class="field">
+            <span class="label">字體</span>
+            <select id="fontSelect" class="select">
+              <option value="Noto Sans TC" selected>Noto Sans TC</option>
+              <option value="ZCOOL KuaiLe">ZCOOL KuaiLe</option>
+              <option value="Noto Sans">Noto Sans</option>
+              <option value="system-ui">System UI</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">字重</span>
+            <select id="weightSelect" class="select">
+              <option value="400" selected>Regular (400)</option>
+              <option value="700">Bold (700)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <div class="labelRow">
+              <span class="label">字級</span>
+              <output id="sizeOut" class="valuePill">56</output>
+            </div>
+            <input id="sizeRange" class="range" type="range" min="8" max="128" step="1" value="56" />
+          </div>
+
+          <div class="field">
+            <div class="labelRow">
+              <span class="label">行距</span>
+              <output id="lineOut" class="valuePill">1.15</output>
+            </div>
+            <input id="lineRange" class="range" type="range" min="0.8" max="1.8" step="0.01" value="1.15" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="h2">顏色</h2>
+
+        <div class="grid2">
+          <label class="field">
+            <span class="label">文字顏色</span>
+            <div class="colorRow">
+              <input id="textColor" class="color" type="color" value="#111827" />
+              <input id="textColorHex" class="textInputMono" type="text" value="#111827" inputmode="text" autocomplete="off" spellcheck="false" />
+            </div>
+          </label>
+
+          <label class="field">
+            <span class="label">背景顏色</span>
+            <div class="colorRow">
+              <input id="bgColor" class="color" type="color" value="#ffffff" />
+              <input id="bgColorHex" class="textInputMono" type="text" value="#ffffff" inputmode="text" autocomplete="off" spellcheck="false" />
+            </div>
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label class="field switchRow">
+            <input id="bgTransparent" type="checkbox" checked />
+            <span>背景透明</span>
+          </label>
+
+          <div class="field">
+            <div class="labelRow">
+              <span class="label">背景透明度</span>
+              <output id="bgAlphaOut" class="valuePill">100%</output>
+            </div>
+            <input id="bgAlphaRange" class="range" type="range" min="0" max="100" step="1" value="100" />
+            <p class="help muted">若「背景透明」勾選，這個設定會被忽略。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="h2">位置</h2>
+
+        <div class="grid2">
+          <div class="field">
+            <div class="labelRow">
+              <span class="label">Offset X</span>
+              <output id="offXOut" class="valuePill">0</output>
+            </div>
+            <input id="offXRange" class="range" type="range" min="-64" max="64" step="1" value="0" />
+          </div>
+
+          <div class="field">
+            <div class="labelRow">
+              <span class="label">Offset Y</span>
+              <output id="offYOut" class="valuePill">0</output>
+            </div>
+            <input id="offYRange" class="range" type="range" min="-64" max="64" step="1" value="0" />
+          </div>
+        </div>
+
+        <div class="grid2">
+          <label class="field">
+            <span class="label">對齊</span>
+            <select id="alignSelect" class="select">
+              <option value="center" selected>置中</option>
+              <option value="left">靠左</option>
+              <option value="right">靠右</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="label">邊距（Padding）</span>
+            <div class="labelRow">
+              <output id="padOut" class="valuePill">0</output>
+            </div>
+            <input id="padRange" class="range" type="range" min="0" max="24" step="1" value="0" />
+          </label>
+        </div>
+
+        <p class="muted small">
+          注意：Slack emoji 輸出固定 128×128。若文字太大超出，可調小字級或增加 padding。
+        </p>
+      </section>
+
+      <footer class="footerNote muted small">
+        v1.1 + Dark Mode — Vanilla JS / HTML / CSS（無後端）
+      </footer>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
