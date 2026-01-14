@@ -54,7 +54,7 @@
 
         const DEFAULT_SETTINGS = {
             text: 'HELLO\nWORLD',
-            slices: 1, 
+            slices: 1,
             fontSize: 48,
             fontWeight: '900',
             fontFamily: 'Arial Black',
@@ -65,6 +65,8 @@
             letterSpacing: 0,
             scaleX: 1.0, // 新增：水平比例
             scaleY: 1.0, // 新增：垂直比例
+            offsetX: 0, // 新增：水平偏移
+            offsetY: 0, // 新增：垂直偏移
             animation: 'Party',
             scrollDirection: 'Left',
             speed: 1,
@@ -97,7 +99,7 @@
             },
 
             draw: (ctx, settings, elapsed, repeatIntervalOverride) => {
-                const { text, slices, fontSize, fontWeight, fontFamily, color, strokeColor, strokeWidth, lineSpacing, letterSpacing, scaleX, scaleY, animation, scrollDirection, speed, intensity } = settings;
+                const { text, slices, fontSize, fontWeight, fontFamily, color, strokeColor, strokeWidth, lineSpacing, letterSpacing, scaleX, scaleY, offsetX: userOffsetX, offsetY: userOffsetY, animation, scrollDirection, speed, intensity } = settings;
                 const canvasWidth = CANVAS_CONFIG.SLICE_SIZE * slices;
                 const canvasHeight = CANVAS_CONFIG.SLICE_SIZE;
                 const centerX = canvasWidth / 2;
@@ -139,7 +141,7 @@
                         break;
                 }
 
-                ctx.translate(centerX + offsetX, centerY + offsetY);
+                ctx.translate(centerX + offsetX + userOffsetX, centerY + offsetY + userOffsetY);
                 ctx.rotate(rotation);
                 // 應用水平與垂直變形
                 ctx.scale(scaleX, scaleY);
@@ -151,7 +153,7 @@
 
                 const drawText = (dx, dy) => {
                     lines.forEach((line, i) => {
-                        const y = (i * fontSize * lineSpacing) - (totalTextHeight / 2) + (fontSize / 2);
+                        const y = (i * fontSize * lineSpacing) - (totalTextHeight / 2);
                         // 因為 context 已縮放，位移 dx 也需要考慮比例（如果是水平捲動）
                         // 但 dx 是以 repeatInterval 為基準，repeatInterval 已包含 scaleX，所以 dx 直接除以 scaleX 即可校正回歸
                         const adjustedDx = dx / scaleX;
@@ -294,7 +296,8 @@
                                     <h3 className="text-white font-bold mb-2 flex items-center gap-2 uppercase tracking-tighter">快速上手 Quick Start</h3>
                                     <p>1. 在「內容」分頁輸入文字（支援 Enter 換行）。</p>
                                     <p>2. 切換「樣式」調整大小、顏色與描邊寬度。</p>
-                                    <p>3. <span className="text-indigo-400 font-bold">新功能：</span>在樣式分頁調整水平/垂直比例可讓文字進行變形效果。</p>
+                                    <p>3. <span className="text-indigo-400 font-bold">變形效果：</span>在樣式分頁調整水平/垂直比例可讓文字進行變形。</p>
+                                    <p>4. <span className="text-indigo-400 font-bold">位置微調：</span>使用 X/Y 偏移滑桿精確調整文字在畫布中的位置。</p>
                                 </section>
                                 <section>
                                     <h3 className="text-white font-bold mb-2 flex items-center gap-2 uppercase tracking-tighter">無縫循環 Seamless Loop</h3>
@@ -335,10 +338,16 @@
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-3 sm:gap-6 text-[10px] sm:text-xs text-center">
-                                    <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">畫布寬度</span><span className="text-indigo-400 font-mono font-bold">{128 * settings.slices} px</span></div>
-                                    <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">水平比例</span><span className="text-indigo-400 font-mono font-bold">{settings.scaleX.toFixed(1)} x</span></div>
-                                    <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">垂直比例</span><span className="text-indigo-400 font-mono font-bold">{settings.scaleY.toFixed(1)} x</span></div>
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-3 gap-3 sm:gap-4 text-[10px] sm:text-xs text-center">
+                                        <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">畫布寬度</span><span className="text-indigo-400 font-mono font-bold">{128 * settings.slices} px</span></div>
+                                        <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">水平比例</span><span className="text-indigo-400 font-mono font-bold">{settings.scaleX.toFixed(1)} x</span></div>
+                                        <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">垂直比例</span><span className="text-indigo-400 font-mono font-bold">{settings.scaleY.toFixed(1)} x</span></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 sm:gap-4 text-[10px] sm:text-xs text-center max-w-md mx-auto">
+                                        <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">X 偏移</span><span className="text-indigo-400 font-mono font-bold">{settings.offsetX} px</span></div>
+                                        <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">Y 偏移</span><span className="text-indigo-400 font-mono font-bold">{settings.offsetY} px</span></div>
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -413,6 +422,19 @@
                                                         <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>行距</span> <span className="text-indigo-400 font-mono">{settings.lineSpacing}</span></div>
                                                         <input type="range" min="0.5" max="2.0" step="0.1" value={settings.lineSpacing} onChange={e => updateSetting('lineSpacing', Number(e.target.value))} className="w-full accent-indigo-500" />
                                                     </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-4 border-b border-white/5 pb-6">
+                                            <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest block mb-4">位置微調</label>
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>水平偏移 (X)</span> <span className="text-indigo-400 font-mono">{settings.offsetX} px</span></div>
+                                                    <input type="range" min="-50" max="50" value={settings.offsetX} onChange={e => updateSetting('offsetX', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>垂直偏移 (Y)</span> <span className="text-indigo-400 font-mono">{settings.offsetY} px</span></div>
+                                                    <input type="range" min="-50" max="50" value={settings.offsetY} onChange={e => updateSetting('offsetY', Number(e.target.value))} className="w-full accent-indigo-500" />
                                                 </div>
                                             </div>
                                         </div>
