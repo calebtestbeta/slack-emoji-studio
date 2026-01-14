@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-C876YCX8BX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-C876YCX8BX');
+    </script>
+
+    <title>Animate Emoji Pro - 動態表情符號產生器</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入 React, ReactDOM 與 Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 載入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .bg-grid {
+            background-image: linear-gradient(45deg, #1a1a1b 25%, transparent 25%), 
+                              linear-gradient(-45deg, #1a1a1b 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #1a1a1b 75%), 
+                              linear-gradient(-45deg, transparent 75%, #1a1a1b 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+    </style>
+</head>
+<body class="bg-[#0F0F10] text-gray-200">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+        const EXTERNAL_LIBS = {
+            GIF: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js',
+            GIF_WORKER: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
+            JSZIP: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+        };
+
+        const DEFAULT_SETTINGS = {
+            text: 'HELLO\nWORLD',
+            slices: 1, 
+            fontSize: 48,
+            fontWeight: '900',
+            fontFamily: 'Arial Black',
+            color: '#FFD700',
+            strokeColor: '#000000',
+            strokeWidth: 4,
+            lineSpacing: 1.2,
+            letterSpacing: 0,
+            scaleX: 1.0, // 新增：水平比例
+            scaleY: 1.0, // 新增：垂直比例
+            animation: 'Party',
+            scrollDirection: 'Left',
+            speed: 1,
+            intensity: 5,
+        };
+
+        const CANVAS_CONFIG = { SLICE_SIZE: 128, EXPORT_DELAY: 50 };
+
+        const Icon = ({ name, size = 20, className = "" }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const RenderEngine = {
+            // 輔助函式：計算文字寬度與循環間距（考量變形比例）
+            getRepeatInterval: (ctx, settings) => {
+                const { text, slices, fontSize, fontWeight, fontFamily, letterSpacing, scaleX } = settings;
+                const canvasWidth = CANVAS_CONFIG.SLICE_SIZE * slices;
+                ctx.save();
+                ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+                if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing}px`;
+                const lines = text.split('\n');
+                let maxLineWidth = 0;
+                lines.forEach(line => {
+                    maxLineWidth = Math.max(maxLineWidth, ctx.measureText(line).width);
+                });
+                ctx.restore();
+                // 必須將測量寬度乘以水平縮放比例
+                return Math.max(canvasWidth, (maxLineWidth * scaleX) + 80);
+            },
+
+            draw: (ctx, settings, elapsed, repeatIntervalOverride) => {
+                const { text, slices, fontSize, fontWeight, fontFamily, color, strokeColor, strokeWidth, lineSpacing, letterSpacing, scaleX, scaleY, animation, scrollDirection, speed, intensity } = settings;
+                const canvasWidth = CANVAS_CONFIG.SLICE_SIZE * slices;
+                const canvasHeight = CANVAS_CONFIG.SLICE_SIZE;
+                const centerX = canvasWidth / 2;
+                const centerY = canvasHeight / 2;
+                const t = (elapsed / 1000) * speed;
+
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                ctx.save();
+                
+                ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                if ('letterSpacing' in ctx) ctx.letterSpacing = `${letterSpacing}px`;
+
+                const lines = text.split('\n');
+                const repeatInterval = repeatIntervalOverride || RenderEngine.getRepeatInterval(ctx, settings);
+                const totalTextHeight = lines.length * fontSize * lineSpacing;
+                
+                let offsetX = 0, offsetY = 0, rotation = 0, currentTextColor = color;
+
+                switch (animation) {
+                    case 'Shake':
+                        offsetX = (Math.random() - 0.5) * intensity * 2;
+                        offsetY = (Math.random() - 0.5) * intensity * 2;
+                        break;
+                    case 'Spin': rotation = t * Math.PI * 2; break;
+                    case 'Bounce': offsetY = Math.sin(t * Math.PI * 2) * intensity * 4; break;
+                    case 'Party': currentTextColor = `hsl(${(t * 360) % 360}, 100%, 50%)`; break;
+                    case 'Marquee': 
+                    case 'Rainbow Scroll':
+                        if (animation === 'Rainbow Scroll') currentTextColor = `hsl(${(t * 360) % 360}, 100%, 50%)`;
+                        if (scrollDirection === 'Left' || scrollDirection === 'Right') {
+                            const move = (t * 100) % repeatInterval;
+                            offsetX = scrollDirection === 'Left' ? -move : move;
+                        } else {
+                            const move = (t * 100) % canvasHeight;
+                            offsetY = scrollDirection === 'Up' ? -move : move;
+                        }
+                        break;
+                }
+
+                ctx.translate(centerX + offsetX, centerY + offsetY);
+                ctx.rotate(rotation);
+                // 應用水平與垂直變形
+                ctx.scale(scaleX, scaleY);
+                
+                ctx.fillStyle = currentTextColor;
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = strokeWidth;
+                ctx.lineJoin = 'round';
+
+                const drawText = (dx, dy) => {
+                    lines.forEach((line, i) => {
+                        const y = (i * fontSize * lineSpacing) - (totalTextHeight / 2) + (fontSize / 2);
+                        // 因為 context 已縮放，位移 dx 也需要考慮比例（如果是水平捲動）
+                        // 但 dx 是以 repeatInterval 為基準，repeatInterval 已包含 scaleX，所以 dx 直接除以 scaleX 即可校正回歸
+                        const adjustedDx = dx / scaleX;
+                        const adjustedDy = dy / scaleY;
+                        
+                        if (strokeWidth > 0) ctx.strokeText(line, adjustedDx, y + adjustedDy);
+                        ctx.fillText(line, adjustedDx, y + adjustedDy);
+                    });
+                };
+
+                drawText(0, 0);
+                if (animation.includes('Scroll') || animation === 'Marquee') { 
+                    if (scrollDirection === 'Left' || scrollDirection === 'Right') {
+                        drawText(repeatInterval, 0); drawText(-repeatInterval, 0); 
+                    } else {
+                        drawText(0, canvasHeight); drawText(0, -canvasHeight);
+                    }
+                }
+                ctx.restore();
+            }
+        };
+
+        const App = () => {
+            const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+            const [previewBg, setPreviewBg] = useState('transparent');
+            const [activeTab, setActiveTab] = useState('text');
+            const [exportState, setExportState] = useState({ isProcessing: false, progress: 0 });
+            const [showHelp, setShowHelp] = useState(false);
+            const canvasRef = useRef(null);
+            const startTimeRef = useRef(Date.now());
+
+            const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
+
+            const calculateExportFrames = (ctx) => {
+                const { animation, speed, scrollDirection } = settings;
+                if (animation === 'Static') return 1;
+                
+                let duration = 0; 
+                if (animation === 'Marquee' || animation === 'Rainbow Scroll') {
+                    if (scrollDirection === 'Left' || scrollDirection === 'Right') {
+                        const interval = RenderEngine.getRepeatInterval(ctx, settings);
+                        duration = interval / (100 * speed);
+                    } else {
+                        duration = 128 / (100 * speed);
+                    }
+                } else if (animation === 'Shake') {
+                    duration = 0.8; 
+                } else {
+                    duration = 1 / speed;
+                }
+                const frames = Math.ceil(duration / (CANVAS_CONFIG.EXPORT_DELAY / 1000));
+                return Math.min(Math.max(frames, 10), 100);
+            };
+
+            const tick = useCallback(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                RenderEngine.draw(ctx, settings, Date.now() - startTimeRef.current);
+                if (settings.slices > 1) {
+                    ctx.save(); ctx.setLineDash([8, 4]); ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2;
+                    for (let i = 1; i < settings.slices; i++) {
+                        ctx.beginPath(); ctx.moveTo(i * 128, 0); ctx.lineTo(i * 128, 128); ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+                requestAnimationFrame(tick);
+            }, [settings]);
+
+            useEffect(() => {
+                const id = requestAnimationFrame(tick);
+                return () => cancelAnimationFrame(id);
+            }, [tick]);
+
+            const handleExport = async () => {
+                setExportState({ isProcessing: true, progress: 0 });
+                try {
+                    const loadScript = (src) => new Promise(r => { 
+                        if (document.querySelector(`script[src="${src}"]`)) return r();
+                        const s = document.createElement('script'); s.src = src; s.onload = r; document.head.appendChild(s); 
+                    });
+                    await loadScript(EXTERNAL_LIBS.GIF); await loadScript(EXTERNAL_LIBS.JSZIP);
+                    const workerBlob = await fetch(EXTERNAL_LIBS.GIF_WORKER).then(r => r.blob());
+                    const workerUrl = URL.createObjectURL(workerBlob);
+                    const testCtx = document.createElement('canvas').getContext('2d');
+                    const frameCount = calculateExportFrames(testCtx);
+                    const interval = RenderEngine.getRepeatInterval(testCtx, settings);
+                    const blobs = [];
+                    for (let s = 0; s < settings.slices; s++) {
+                        const gif = new window.GIF({ workers: 2, quality: 10, width: 128, height: 128, transparent: 'rgba(0,0,0,0)', workerScript: workerUrl });
+                        const tCanv = document.createElement('canvas'); tCanv.width = 128 * settings.slices; tCanv.height = 128;
+                        const oCanv = document.createElement('canvas'); oCanv.width = 128; oCanv.height = 128;
+                        const tCtx = tCanv.getContext('2d'); const oCtx = oCanv.getContext('2d');
+                        for (let f = 0; f < frameCount; f++) {
+                            RenderEngine.draw(tCtx, settings, f * CANVAS_CONFIG.EXPORT_DELAY, interval);
+                            oCtx.clearRect(0, 0, 128, 128); oCtx.drawImage(tCanv, s * 128, 0, 128, 128, 0, 0, 128, 128);
+                            gif.addFrame(oCtx, { delay: CANVAS_CONFIG.EXPORT_DELAY, copy: true });
+                        }
+                        const blob = await new Promise(res => {
+                            gif.on('finished', res);
+                            gif.on('progress', p => setExportState(prev => ({ ...prev, progress: Math.round(((s / settings.slices) + (p / settings.slices)) * 100) })));
+                            gif.render();
+                        });
+                        blobs.push(blob);
+                    }
+                    URL.revokeObjectURL(workerUrl);
+                    const url = settings.slices === 1 ? URL.createObjectURL(blobs[0]) : URL.createObjectURL(await blobs.reduce((z, b, i) => { z.file(`emoji_${i+1}.gif`, b); return z; }, new JSZip()).generateAsync({type: "blob"}));
+                    const a = document.createElement('a'); a.href = url; a.download = settings.slices === 1 ? "emoji.gif" : "panoramic_emojis.zip"; a.click();
+                } catch (e) { console.error(e); } finally { setExportState({ isProcessing: false, progress: 0 }); }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col bg-[#0F0F10] relative">
+                    {/* Header */}
+                    <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#161618] z-40 shadow-lg shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/20"><Icon name="refresh-cw" className="text-white" /></div>
+                            <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400 uppercase tracking-wider">Animate Emoji Pro</h1>
+                        </div>
+                        <button 
+                            onClick={() => setShowHelp(!showHelp)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${showHelp ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                        >
+                            <Icon name="help-circle" size={16} />
+                            <span className="hidden sm:inline">操作說明</span>
+                        </button>
+                    </header>
+
+                    <main className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden relative">
+                        {/* Help Panel */}
+                        <div className={`fixed top-16 right-0 bottom-0 w-full sm:w-80 bg-[#1A1A1B]/95 backdrop-blur-xl border-l border-white/10 z-50 p-6 shadow-2xl transition-transform duration-300 transform ${showHelp ? 'translate-x-0' : 'translate-x-full'}`}>
+                            <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                                <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                    <Icon name="book-open" size={16} className="text-indigo-400" /> 操作說明
+                                </h2>
+                                <button onClick={() => setShowHelp(false)} className="text-gray-500 hover:text-white p-1"><Icon name="x" size={18} /></button>
+                            </div>
+                            <div className="space-y-6 text-xs text-gray-400 leading-relaxed overflow-y-auto h-[calc(100%-80px)] custom-scrollbar pr-2 font-medium">
+                                <section>
+                                    <h3 className="text-white font-bold mb-2 flex items-center gap-2 uppercase tracking-tighter">快速上手 Quick Start</h3>
+                                    <p>1. 在「內容」分頁輸入文字（支援 Enter 換行）。</p>
+                                    <p>2. 切換「樣式」調整大小、顏色與描邊寬度。</p>
+                                    <p>3. <span className="text-indigo-400 font-bold">新功能：</span>在樣式分頁調整水平/垂直比例可讓文字進行變形效果。</p>
+                                </section>
+                                <section>
+                                    <h3 className="text-white font-bold mb-2 flex items-center gap-2 uppercase tracking-tighter">無縫循環 Seamless Loop</h3>
+                                    <p>系統會根據速率與文字長度自動計算循環週期。即使文字經過比例變形，跑馬燈也會自動重新計算間距。</p>
+                                </section>
+                                <div className="p-4 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
+                                    <h3 className="text-indigo-300 font-bold mb-2 text-[10px] uppercase">影格提示</h3>
+                                    <p>若導出的 GIF 超過 128KB 限制，建議調快速度或縮短文字內容。</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 預覽區域 */}
+                        <section className="flex-none lg:flex-1 flex flex-col p-6 sm:p-8 items-center justify-center bg-black/40 min-h-[400px]">
+                            <div className="w-full max-w-4xl space-y-8 text-center">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex p-1 bg-white/5 rounded-xl border border-white/10">
+                                        {['transparent', 'light', 'dark'].map(bg => (
+                                            <button 
+                                                key={bg} onClick={() => setPreviewBg(bg)} 
+                                                className={`px-4 sm:px-5 py-2 rounded-lg text-xs font-bold transition-all ${previewBg === bg ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'}`}
+                                            >
+                                                {bg === 'transparent' ? '透明' : bg === 'light' ? '淺色' : '深色'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="hidden sm:flex text-[10px] font-black text-indigo-500 uppercase tracking-widest items-center gap-2">
+                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+                                        {settings.slices > 1 ? `全景模式 (${settings.slices}x1)` : '標準模式 (1x1)'}
+                                    </div>
+                                </div>
+
+                                <div className={`relative min-h-[250px] sm:min-h-[300px] flex items-center justify-center rounded-[2rem] border-2 border-white/5 shadow-2xl transition-all duration-500 overflow-hidden ${previewBg === 'light' ? 'bg-white' : previewBg === 'dark' ? 'bg-[#1A1A1B]' : 'bg-grid bg-gray-900'}`}>
+                                    <canvas 
+                                        ref={canvasRef} 
+                                        width={128 * settings.slices} height={128} 
+                                        className="transform scale-[1.8] sm:scale-[2.2] drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-transform duration-700" 
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3 sm:gap-6 text-[10px] sm:text-xs text-center">
+                                    <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">畫布寬度</span><span className="text-indigo-400 font-mono font-bold">{128 * settings.slices} px</span></div>
+                                    <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">水平比例</span><span className="text-indigo-400 font-mono font-bold">{settings.scaleX.toFixed(1)} x</span></div>
+                                    <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/5"><span className="text-gray-500 font-black block mb-1 uppercase tracking-tighter text-[9px]">垂直比例</span><span className="text-indigo-400 font-mono font-bold">{settings.scaleY.toFixed(1)} x</span></div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* 控制面板 */}
+                        <aside className="w-full lg:w-[420px] bg-[#161618] border-l border-white/5 flex flex-col shadow-2xl shrink-0">
+                            <nav className="flex border-b border-white/5 bg-black/20 shrink-0">
+                                {[
+                                    {id:'text', icon:'type', label: '內容'}, 
+                                    {id:'style', icon:'palette', label: '樣式'}, 
+                                    {id:'anim', icon:'play', label: '動畫'}, 
+                                    {id:'export', icon:'download', label: '導出'}
+                                ].map(tab => (
+                                    <button 
+                                        key={tab.id} onClick={() => setActiveTab(tab.id)} 
+                                        className={`flex-1 py-5 flex flex-col items-center gap-2 transition-all relative ${activeTab === tab.id ? 'text-indigo-400' : 'text-gray-600 hover:text-gray-400'}`}
+                                    >
+                                        <Icon name={tab.icon} size={20} />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">{tab.label}</span>
+                                        {activeTab === tab.id && <div className="absolute bottom-0 left-4 right-4 h-1 bg-indigo-500 rounded-t-full"></div>}
+                                    </button>
+                                ))}
+                            </nav>
+
+                            <div className="flex-1 lg:overflow-y-auto p-6 sm:p-8 space-y-10 custom-scrollbar">
+                                {activeTab === 'text' && (
+                                    <div className="space-y-8 animate-slide-in">
+                                        <div className="space-y-3">
+                                            <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest">文字內容 (支援換行)</label>
+                                            <textarea 
+                                                value={settings.text} onChange={e => updateSetting('text', e.target.value)} 
+                                                className="w-full bg-black border border-white/10 rounded-2xl p-5 text-white h-44 resize-none outline-none focus:ring-2 focus:ring-indigo-500/50 font-medium text-lg" 
+                                            />
+                                        </div>
+                                        <div className="space-y-4">
+                                            <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest">表情符號數量 (全景模式切換)</label>
+                                            <div className="flex gap-2">
+                                                {[1,2,3,4,5].map(n => (
+                                                    <button key={n} onClick={() => updateSetting('slices', n)} className={`flex-1 py-4 rounded-xl font-black border transition-all ${settings.slices === n ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20' : 'bg-black border-white/5 text-gray-600 hover:border-white/20'}`}>{n}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'style' && (
+                                    <div className="space-y-8 animate-slide-in">
+                                        <div className="space-y-4 border-b border-white/5 pb-6">
+                                            <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest block mb-4">文字排版與基礎變形</label>
+                                            <select value={settings.fontFamily} onChange={e => updateSetting('fontFamily', e.target.value)} className="w-full bg-black border border-white/10 rounded-xl p-4 text-white font-bold outline-none cursor-pointer mb-6 shadow-inner">
+                                                <option>Arial Black</option><option>Inter</option><option>Impact</option><option>Verdana</option>
+                                            </select>
+                                            <div className="grid grid-cols-1 gap-6">
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>字體大小</span> <span className="text-indigo-400 font-mono">{settings.fontSize} px</span></div>
+                                                    <input type="range" min="10" max="150" value={settings.fontSize} onChange={e => updateSetting('fontSize', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>水平比例 (寬度變形)</span> <span className="text-indigo-400 font-mono">{settings.scaleX.toFixed(1)} x</span></div>
+                                                    <input type="range" min="0.1" max="3.0" step="0.1" value={settings.scaleX} onChange={e => updateSetting('scaleX', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>垂直比例 (高度變形)</span> <span className="text-indigo-400 font-mono">{settings.scaleY.toFixed(1)} x</span></div>
+                                                    <input type="range" min="0.1" max="3.0" step="0.1" value={settings.scaleY} onChange={e => updateSetting('scaleY', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-6">
+                                                    <div className="space-y-3">
+                                                        <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>描邊</span> <span className="text-indigo-400 font-mono">{settings.strokeWidth} px</span></div>
+                                                        <input type="range" min="0" max="15" value={settings.strokeWidth} onChange={e => updateSetting('strokeWidth', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase"><span>行距</span> <span className="text-indigo-400 font-mono">{settings.lineSpacing}</span></div>
+                                                        <input type="range" min="0.5" max="2.0" step="0.1" value={settings.lineSpacing} onChange={e => updateSetting('lineSpacing', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-6 bg-white/5 rounded-3xl space-y-4 border border-white/5 shadow-inner">
+                                            <div className="flex justify-between items-center"><span className="text-xs font-bold text-white uppercase tracking-wider">文字顏色</span><input type="color" value={settings.color} onChange={e => updateSetting('color', e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0" /></div>
+                                            <div className="flex justify-between items-center"><span className="text-xs font-bold text-white uppercase tracking-wider">描邊顏色</span><input type="color" value={settings.strokeColor} onChange={e => updateSetting('strokeColor', e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0" /></div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'anim' && (
+                                    <div className="space-y-8 animate-slide-in">
+                                        <div className="space-y-4">
+                                            <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest block">動態特效</label>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {['Static', 'Shake', 'Spin', 'Bounce', 'Party', 'Marquee', 'Rainbow Scroll'].map(fx => (
+                                                    <button 
+                                                        key={fx} onClick={() => updateSetting('animation', fx)} 
+                                                        className={`px-4 py-4 rounded-xl text-[11px] font-black border transition-all ${settings.animation === fx ? 'bg-indigo-600/10 border-indigo-500 text-indigo-400 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]' : 'bg-black border-white/5 text-gray-600 hover:border-white/20'}`}
+                                                    >
+                                                        {fx === 'Static' ? '靜態' : fx === 'Shake' ? '抖動' : fx === 'Spin' ? '旋轉' : fx === 'Bounce' ? '彈跳' : fx === 'Party' ? '派對色' : fx === 'Marquee' ? '跑馬燈' : '彩虹捲動'}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {(settings.animation.includes('Scroll') || settings.animation === 'Marquee') && (
+                                            <div className="space-y-4 animate-slide-in">
+                                                <label className="text-[11px] font-black text-gray-500 uppercase tracking-widest block">捲動方向</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {['Left', 'Right', 'Up', 'Down'].map(dir => (
+                                                        <button 
+                                                            key={dir} onClick={() => updateSetting('scrollDirection', dir)} 
+                                                            className={`py-3 rounded-xl text-[10px] font-black border transition-all ${settings.scrollDirection === dir ? 'bg-white text-black border-white shadow-lg' : 'bg-black border-white/10 text-gray-500'}`}
+                                                        >
+                                                            {dir === 'Left' ? '← 向左' : dir === 'Right' ? '向右 →' : dir === 'Up' ? '↑ 向上' : '向下 ↓'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-6">
+                                            <div className="bg-black p-6 rounded-2xl border border-white/5 space-y-4 shadow-inner">
+                                                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">播放速率</span><span className="text-xs text-indigo-400 font-bold font-mono">x{settings.speed}</span></div>
+                                                <input type="range" min="0.1" max="4" step="0.1" value={settings.speed} onChange={e => updateSetting('speed', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                            </div>
+                                            <div className="bg-black p-6 rounded-2xl border border-white/5 space-y-4 shadow-inner">
+                                                <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">震盪強度</span><span className="text-xs text-indigo-400 font-bold font-mono">{settings.intensity}</span></div>
+                                                <input type="range" min="1" max="20" value={settings.intensity} onChange={e => updateSetting('intensity', Number(e.target.value))} className="w-full accent-indigo-500" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'export' && (
+                                    <div className="space-y-8 animate-slide-in flex flex-col h-full">
+                                        <div className="flex-1 space-y-6">
+                                            <div className="flex items-start gap-4 p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-3xl">
+                                                <div className="p-2 bg-indigo-500/20 rounded-xl shrink-0"><Icon name="info" size={20} className="text-indigo-400" /></div>
+                                                <div className="space-y-1">
+                                                    <h6 className="text-xs font-black text-indigo-300 uppercase tracking-wider">導出資訊</h6>
+                                                    <p className="text-[11px] text-indigo-200/60 leading-relaxed font-medium">
+                                                        {settings.slices > 1 ? `全景模式（${settings.slices} 切片）。系統會考量文字寬度與變形比例，自動計算無縫循環影格。` : '標準模式。影格數將依動畫週期自動調整。'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
+                                                <h5 className="text-[11px] font-black text-white uppercase tracking-widest mb-4">輸出規格</h5>
+                                                <ul className="text-[11px] text-gray-500 space-y-3">
+                                                    <li className="flex justify-between"><span>格式</span> <span className="text-gray-300 font-bold font-mono">GIF (8-bit)</span></li>
+                                                    <li className="flex justify-between"><span>循環週期</span> <span className="text-gray-300 font-bold">Seamless</span></li>
+                                                    <li className="flex justify-between"><span>影格延遲</span> <span className="text-gray-300 font-bold font-mono">50 ms</span></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={handleExport} disabled={exportState.isProcessing} 
+                                            className="w-full py-6 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[1.5rem] font-black text-white shadow-2xl transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-[0.2em] text-sm"
+                                        >
+                                            {exportState.isProcessing ? `生成中 ${exportState.progress}%` : "導出 GIF 表情符號"}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </aside>
+                    </main>
+
+                    {exportState.isProcessing && (
+                        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-8">
+                            <div className="max-w-md w-full bg-[#161618] border border-white/10 rounded-[3rem] p-12 text-center space-y-8 shadow-2xl animate-pulse">
+                                <div className="relative w-40 h-40 mx-auto">
+                                    <svg className="w-full h-full transform -rotate-90">
+                                        <circle cx="80" cy="80" r="75" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="10" />
+                                        <circle 
+                                            cx="80" cy="80" r="75" fill="none" stroke="url(#progress_grad)" strokeWidth="10" 
+                                            strokeDasharray={471} strokeDashoffset={471 - (471 * exportState.progress) / 100} 
+                                            strokeLinecap="round" className="transition-all duration-300"
+                                        />
+                                        <defs><linearGradient id="progress_grad"><stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#a855f7" /></linearGradient></defs>
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center flex-col"><span className="text-5xl font-black text-white font-mono">{exportState.progress}%</span></div>
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-2xl font-black text-white uppercase tracking-wider">正在計算影格...</h3>
+                                    <p className="text-gray-500 text-sm font-medium italic tracking-tight">系統正在優化動畫循環並處理文字變形</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

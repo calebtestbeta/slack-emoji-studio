@@ -33,6 +33,7 @@
             --bg-card: #181818;
             --accent-gemini: #6366f1;
             --accent-chatgpt: #10b981;
+            --accent-animated: #f97316;
             --text-primary: #e2e8f0;
             --text-muted: #888888;
             --border: rgba(255, 255, 255, 0.08);
@@ -111,8 +112,14 @@
         @media (min-width: 768px) {
             .cards-grid {
                 display: grid;
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
                 gap: 2rem;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .cards-grid {
+                grid-template-columns: repeat(3, 1fr);
             }
         }
 
@@ -146,6 +153,10 @@
             --card-accent: var(--accent-chatgpt);
         }
 
+        .version-card.animated {
+            --card-accent: var(--accent-animated);
+        }
+
         .version-card:hover {
             transform: scale(1.02);
             border-color: var(--card-accent);
@@ -157,6 +168,10 @@
 
         .version-card.chatgpt:hover {
             box-shadow: 0 8px 30px rgba(16, 185, 129, 0.3);
+        }
+
+        .version-card.animated:hover {
+            box-shadow: 0 8px 30px rgba(249, 115, 22, 0.3);
         }
 
         /* --- Badge --- */
@@ -179,6 +194,11 @@
         .chatgpt .badge {
             background-color: rgba(16, 185, 129, 0.2);
             color: var(--accent-chatgpt);
+        }
+
+        .animated .badge {
+            background-color: rgba(249, 115, 22, 0.2);
+            color: var(--accent-animated);
         }
 
         /* --- Card Content --- */
@@ -219,6 +239,10 @@
 
         .chatgpt .btn {
             background-color: var(--accent-chatgpt);
+        }
+
+        .animated .btn {
+            background-color: var(--accent-animated);
         }
 
         .btn:hover {
@@ -311,6 +335,17 @@
                     </p>
                     <a href="./chatgpt/" class="btn">開始使用 →</a>
                 </article>
+
+                <!-- Animated Card -->
+                <article class="version-card animated">
+                    <span class="badge">動態版</span>
+                    <h2 class="card-title">Animated Edition</h2>
+                    <p class="card-description">
+                        動態表情符號產生器，支援 GIF 動畫效果<br>
+                        Create animated emoji with GIF effects
+                    </p>
+                    <a href="./animated/" class="btn">開始使用 →</a>
+                </article>
             </section>
         </main>
 
@@ -318,7 +353,7 @@
         <footer>
             <div class="security-note">
                 <span>🔒</span>
-                <span>100% 本機運算 · Data stays in your browser · Analytics by Google</span>
+                <span>100% 本機運算 · Data stays in your browser</span>
             </div>
         </footer>
     </div>
